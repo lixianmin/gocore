@@ -4,13 +4,11 @@ author:     lixianmin
 
 Copyright (C) - All Rights Reserved
 *********************************************************************/
-package gocore
+package main
 
-import (
-	"fmt"
-	"testing"
-)
+import "github.com/lixianmin/gocore/service"
 
-func TestSomething(t *testing.T) {
-	fmt.Println("only for test")
+func main() {
+	var server = service.NewTestServer()
+	server.ListenAndServe()
 }
