@@ -21,15 +21,20 @@ var _isDebugAllowed = func(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func EnableDebugger(mux iServeMux, isDebugAllowed func(w http.ResponseWriter, r *http.Request) bool) {
-	if isDebugAllowed != nil {
-		_isDebugAllowed = isDebugAllowed
-
-		mux.HandleFunc("/debug/pprof/", index)
-		mux.HandleFunc("/debug/pprof/cmdline", cmdline)
-		mux.HandleFunc("/debug/pprof/profile", profile)
-		mux.HandleFunc("/debug/pprof/symbol", symbol)
-		mux.HandleFunc("/debug/pprof/trace", trace)
+	if nil == mux {
+		panic("mux is nil")
 	}
+
+	if nil == isDebugAllowed {
+		panic("isDebugAllowed is nil")
+	}
+
+	_isDebugAllowed = isDebugAllowed
+	mux.HandleFunc("/debug/pprof/", index)
+	mux.HandleFunc("/debug/pprof/cmdline", cmdline)
+	mux.HandleFunc("/debug/pprof/profile", profile)
+	mux.HandleFunc("/debug/pprof/symbol", symbol)
+	mux.HandleFunc("/debug/pprof/trace", trace)
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
