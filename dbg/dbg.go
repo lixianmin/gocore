@@ -11,18 +11,14 @@ import (
 	"net/http/pprof"
 )
 
-type iServeMux interface {
-	HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request))
-}
-
 var _isDebugAllowed = func(w http.ResponseWriter, r *http.Request) bool {
 	w.Write([]byte("Permission denied, please contact with lixianmin@live.cn"))
 	return false
 }
 
-func EnableDebugger(mux iServeMux, isDebugAllowed func(w http.ResponseWriter, r *http.Request) bool) {
-	if nil == mux {
-		panic("mux is nil")
+func EnableDebugger(handleFunc func(string, func(http.ResponseWriter, *http.Request)), isDebugAllowed func(w http.ResponseWriter, r *http.Request) bool) {
+	if nil == handleFunc {
+		panic("handleFunc is nil")
 	}
 
 	if nil == isDebugAllowed {
@@ -30,11 +26,11 @@ func EnableDebugger(mux iServeMux, isDebugAllowed func(w http.ResponseWriter, r 
 	}
 
 	_isDebugAllowed = isDebugAllowed
-	mux.HandleFunc("/debug/pprof/", index)
-	mux.HandleFunc("/debug/pprof/cmdline", cmdline)
-	mux.HandleFunc("/debug/pprof/profile", profile)
-	mux.HandleFunc("/debug/pprof/symbol", symbol)
-	mux.HandleFunc("/debug/pprof/trace", trace)
+	handleFunc("/debug/pprof/", index)
+	handleFunc("/debug/pprof/cmdline", cmdline)
+	handleFunc("/debug/pprof/profile", profile)
+	handleFunc("/debug/pprof/symbol", symbol)
+	handleFunc("/debug/pprof/trace", trace)
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
