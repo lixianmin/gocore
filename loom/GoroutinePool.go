@@ -6,15 +6,15 @@ https://cloud.tencent.com/info/38078007c4e29f0acb54a33cb68c2543.html
 
 Copyright (C) - All Rights Reserved
 *********************************************************************/
-package gopool
+package loom
 
-type Pool struct {
+type GoroutinePool struct {
 	work chan func()
 	sem  chan struct{}
 }
 
-func New(size int) *Pool {
-	var pool = &Pool{
+func NewGoroutinePool(size int) *GoroutinePool {
+	var pool = &GoroutinePool{
 		work: make(chan func()),
 		sem:  make(chan struct{}, size),
 	}
@@ -22,7 +22,7 @@ func New(size int) *Pool {
 	return pool
 }
 
-func (p *Pool) Schedule(task func()) {
+func (p *GoroutinePool) Schedule(task func()) {
 	select {
 	case p.work <- task:
 	case p.sem <- struct{}{}:
@@ -30,7 +30,7 @@ func (p *Pool) Schedule(task func()) {
 	}
 }
 
-func (p *Pool) worker(task func()) {
+func (p *GoroutinePool) worker(task func()) {
 	defer func() {
 		<-p.sem
 	}()
