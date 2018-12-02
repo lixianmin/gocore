@@ -16,7 +16,7 @@ var _isDebugAllowed = func(w http.ResponseWriter, r *http.Request) bool {
 	return false
 }
 
-func EnableDebugger(handleFunc func(pattern string, handler func(http.ResponseWriter, *http.Request)), isDebugAllowed func(w http.ResponseWriter, r *http.Request) bool) {
+func EnableDebugger(handleFunc func(path string, handler func(http.ResponseWriter, *http.Request)), isDebugAllowed func(w http.ResponseWriter, r *http.Request) bool) {
 	if nil == handleFunc {
 		panic("handleFunc is nil")
 	}
