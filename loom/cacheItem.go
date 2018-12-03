@@ -9,13 +9,16 @@ package loom
 
 import (
 	"time"
+	"sync"
+	"github.com/lixianmin/gocore/safe"
 )
 
 type cacheItem struct {
 	data      interface{}
 	loader    func() interface{}
-	loadTime  time.Time
-	fetchTime time.Time
+	loadTime  safe.Int64
+	fetchTime safe.Int64
+	sync.Mutex
 }
 
 func newCacheItem(loader func() interface{}) *cacheItem {
@@ -28,18 +31,18 @@ func newCacheItem(loader func() interface{}) *cacheItem {
 
 func (item *cacheItem) loadData() {
 	item.data = item.loader()
-	item.loadTime = time.Now()
+	item.loadTime.Store(time.Now().UnixNano())
 }
 
 func (item *cacheItem) fetchData() interface{} {
-	item.fetchTime = time.Now()
+	item.fetchTime.Store(time.Now().UnixNano())
 	return item.data
 }
 
-func (item *cacheItem) getLoadTime() time.Time {
-	return item.loadTime
+func (item *cacheItem) getLoadTime() int64 {
+	return item.loadTime.Load()
 }
 
-func (item *cacheItem) getFetchTime() time.Time {
-	return item.fetchTime
+func (item *cacheItem) getFetchTime() int64 {
+	return item.fetchTime.Load()
 }
