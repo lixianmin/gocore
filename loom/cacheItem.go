@@ -10,14 +10,14 @@ package loom
 import (
 	"time"
 	"sync"
-	"github.com/lixianmin/gocore/safe"
+	"sync/atomic"
 )
 
 type cacheItem struct {
 	data      interface{}
 	loader    func() interface{}
-	loadTime  safe.Int64
-	fetchTime safe.Int64
+	loadTime  int64
+	fetchTime int64
 	sync.Mutex
 }
 
@@ -31,18 +31,18 @@ func newCacheItem(loader func() interface{}) *cacheItem {
 
 func (item *cacheItem) loadData() {
 	item.data = item.loader()
-	item.loadTime.Store(time.Now().UnixNano())
+	atomic.StoreInt64(&item.loadTime, time.Now().UnixNano())
 }
 
 func (item *cacheItem) fetchData() interface{} {
-	item.fetchTime.Store(time.Now().UnixNano())
+	atomic.StoreInt64(&item.fetchTime, time.Now().UnixNano())
 	return item.data
 }
 
 func (item *cacheItem) getLoadTime() int64 {
-	return item.loadTime.Load()
+	return atomic.LoadInt64(&item.loadTime)
 }
 
 func (item *cacheItem) getFetchTime() int64 {
-	return item.fetchTime.Load()
+	return atomic.LoadInt64(&item.fetchTime)
 }
