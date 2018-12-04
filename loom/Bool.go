@@ -4,7 +4,7 @@ author:     lixianmin
 
 Copyright (C) - All Rights Reserved
 *********************************************************************/
-package safe
+package loom
 
 import "sync/atomic"
 
