@@ -19,15 +19,21 @@ type AsyncCache struct {
 	expiration time.Duration
 }
 
+// expiration为0则代表永不超时
 func NewAsyncCache(goPoolSize int, expiration time.Duration) *AsyncCache {
 	if goPoolSize <= 0 {
 		var message = "Invalid goPoolSize= " + strconv.Itoa(goPoolSize)
 		panic(message)
 	}
 
-	if expiration <= 0 || int64(expiration) >= time.Now().UnixNano() {
+	if expiration < 0 || int64(expiration) >= time.Now().UnixNano() {
 		var message = "Invalid expiration= " + strconv.Itoa(int(expiration))
 		panic(message)
+	}
+
+	var isNeverExpire = expiration == 0
+	if isNeverExpire {
+		expiration = 0506 * 365 * 24 * time.Hour
 	}
 
 	var cache = &AsyncCache{
