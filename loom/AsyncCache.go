@@ -8,69 +8,54 @@ Copyright (C) - All Rights Reserved
 package loom
 
 import (
+	"strconv"
 	"sync"
 	"time"
-	"strconv"
 )
 
 type AsyncCache struct {
-	m sync.Map
+	m          sync.Map
+	pool       *GoroutinePool
+	expiration time.Duration
 }
 
-func NewAsyncCache(goPoolSize int, reloadDelay time.Duration, deleteDelay time.Duration) *AsyncCache {
+func NewAsyncCache(goPoolSize int, expiration time.Duration) *AsyncCache {
 	if goPoolSize <= 0 {
 		var message = "Invalid goPoolSize= " + strconv.Itoa(goPoolSize)
 		panic(message)
 	}
 
-	if reloadDelay <= 0 {
-		var message = "Invalid reloadDelay= " + strconv.Itoa(int(reloadDelay))
+	if expiration <= 0 || int64(expiration) >= time.Now().UnixNano() {
+		var message = "Invalid expiration= " + strconv.Itoa(int(expiration))
 		panic(message)
 	}
 
-	if deleteDelay <= 0 {
-		var message = "Invalid deleteDelay= " + strconv.Itoa(int(deleteDelay))
-		panic(message)
+	var cache = &AsyncCache{
+		pool:       NewGoroutinePool(goPoolSize),
+		expiration: expiration,
 	}
 
-	var cache = &AsyncCache{}
-	go goAsyncCacheLoop(cache.m, goPoolSize, reloadDelay, deleteDelay)
+	go goAsyncCacheLoop(cache.m, expiration)
 	return cache
 }
 
-func goAsyncCacheLoop(m sync.Map, goPoolSize int, reloadDelay time.Duration, deleteDelay time.Duration) {
-	var reloadTicker = time.NewTicker(reloadDelay / 10)
+func goAsyncCacheLoop(m sync.Map, expiration time.Duration) {
+	var deleteDelay = expiration * 4
 	var deleteTicker = time.NewTicker(deleteDelay)
 
 	defer func() {
 		DumpIfPanic()
-		reloadTicker.Stop()
 		deleteTicker.Stop()
 	}()
 
-	var pool = NewGoroutinePool(goPoolSize)
-
 	for {
 		select {
-		case <-reloadTicker.C:
-			m.Range(func(key, value interface{}) bool {
-				var item = value.(*cacheItem)
-				var loadTime = item.getLoadTime()
-				// 虽然加到了cache.m中，但未loadTime=0的因为从未加载过，所以不做处理
-				if loadTime > 0 && time.Now().UnixNano() >= loadTime+int64(reloadDelay) {
-					pool.Schedule(func() {
-						item.loadData()
-					})
-				}
-
-				return true
-			})
 		case <-deleteTicker.C:
 			m.Range(func(key, value interface{}) bool {
 				var item = value.(*cacheItem)
-				var fetchTime = item.getFetchTime()
-				// 虽然加到了cache.m中，但未fetchTime=0的因为从未使用过，所以不做处理
-				if fetchTime > 0 && time.Now().UnixNano() >= fetchTime+int64(deleteDelay) {
+				var accessTime = item.getAccessTime()
+				// 虽然加到了cache.m中，但是accessTime=0的因为从未使用过，所以不做处理
+				if accessTime > 0 && time.Now().UnixNano() >= accessTime+int64(deleteDelay) {
 					m.Delete(key)
 				}
 
@@ -83,22 +68,45 @@ func goAsyncCacheLoop(m sync.Map, goPoolSize int, reloadDelay time.Duration, del
 func (cache *AsyncCache) Get(key string, loader func() interface{}) interface{} {
 	var item, ok = cache.m.Load(key)
 	if !ok {
-		item, _ = cache.m.LoadOrStore(key, newCacheItem(loader))
+		item, _ = cache.m.LoadOrStore(key, newCacheItem())
 	}
 
 	// 到这里为止，相同的key对应拿到的item一定是相同的
 	var theItem = item.(*cacheItem)
-	if theItem.getLoadTime() == 0 {
-		// 真正获得锁的那个协程，不一定是store一个item到cache.m中的那一个，它可能是任意一个协程
+	var expiration = cache.expiration
+
+	// 如果从未加载，或过期了，则需要先加载
+	if theItem.isExpired(expiration) {
+		// 真正获得锁的那个协程，不一定是store一个item到cache.m中的那个，它可能是任意一个协程
 		theItem.Lock()
 		defer theItem.Unlock()
 
-		// 如果从来未加载过，则加载并设置loadTime
-		if theItem.getLoadTime() == 0 {
-			theItem.loadData()
+		// 如果从未加载过，或过期了，则加载并设置
+		if theItem.isExpired(expiration) {
+			var data = loader()
+			theItem.setData(data)
 		}
+
+		var data = theItem.getData()
+		return data
 	}
 
-	var data = theItem.fetchData()
+	// 时间过半，则发起一次异步加载
+	if !theItem.isLoading() && theItem.isExpired(expiration>>1) {
+		theItem.Lock()
+		{
+			if !theItem.isLoading() {
+				theItem.setLoading(true)
+				cache.pool.Schedule(func() {
+					defer theItem.setLoading(false)
+					var data = loader()
+					theItem.setData(data)
+				})
+			}
+		}
+		theItem.Unlock()
+	}
+
+	var data = theItem.getData()
 	return data
 }

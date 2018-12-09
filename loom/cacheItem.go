@@ -8,41 +8,49 @@ Copyright (C) - All Rights Reserved
 package loom
 
 import (
-	"time"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type cacheItem struct {
-	data      interface{}
-	loader    func() interface{}
-	loadTime  int64
-	fetchTime int64
+	data       interface{}
+	accessTime int64
+	loading    int32
 	sync.Mutex
 }
 
-func newCacheItem(loader func() interface{}) *cacheItem {
-	var item = &cacheItem{
-		loader: loader,
-	}
-
+func newCacheItem() *cacheItem {
+	var item = &cacheItem{}
 	return item
 }
 
-func (item *cacheItem) loadData() {
-	item.data = item.loader()
-	atomic.StoreInt64(&item.loadTime, time.Now().UnixNano())
+func (item *cacheItem) setData(data interface{}) {
+	item.data = data
+	atomic.StoreInt64(&item.accessTime, time.Now().UnixNano())
 }
 
-func (item *cacheItem) fetchData() interface{} {
-	atomic.StoreInt64(&item.fetchTime, time.Now().UnixNano())
+func (item *cacheItem) getData() interface{} {
+	atomic.StoreInt64(&item.accessTime, time.Now().UnixNano())
 	return item.data
 }
 
-func (item *cacheItem) getLoadTime() int64 {
-	return atomic.LoadInt64(&item.loadTime)
+func (item *cacheItem) getAccessTime() int64 {
+	return atomic.LoadInt64(&item.accessTime)
 }
 
-func (item *cacheItem) getFetchTime() int64 {
-	return atomic.LoadInt64(&item.fetchTime)
+func (item *cacheItem) isExpired(expiration time.Duration) bool {
+	return time.Now().UnixNano() >= item.getAccessTime()+int64(expiration)
+}
+
+func (item *cacheItem) isLoading() bool {
+	return atomic.LoadInt32(&item.loading) == 1
+}
+
+func (item *cacheItem) setLoading(loading bool) {
+	if loading {
+		atomic.StoreInt32(&item.loading, 1)
+	} else {
+		atomic.StoreInt32(&item.loading, 0)
+	}
 }

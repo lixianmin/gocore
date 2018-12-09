@@ -8,9 +8,9 @@ Copyright (C) - All Rights Reserved
 package loom
 
 import (
+	"fmt"
 	"testing"
 	"time"
-	"fmt"
 )
 
 func TestLongTimeFunction (t *testing.T) {

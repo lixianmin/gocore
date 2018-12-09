@@ -7,7 +7,6 @@ Copyright (C) - All Rights Reserved
 package service
 
 import (
-	"coinbene.com/exchange-ws/core/console"
 	"encoding/json"
 	"github.com/lixianmin/gocore/dbg"
 	"net/http"
@@ -42,6 +41,6 @@ func (server *TestServer) ListenAndServe() {
 
 	var err = http.ListenAndServe(":8444", mux)
 	if err != nil {
-		console.Error("[listenAndServe()] failed with err= %q", err)
+		//console.Error("[listenAndServe()] failed with err= %q", err)
 	}
 }
