@@ -33,7 +33,8 @@ func NewAsyncCache(goPoolSize int, expiration time.Duration) *AsyncCache {
 
 	var isNeverExpire = expiration == 0
 	if isNeverExpire {
-		expiration = 0506 * 365 * 24 * time.Hour
+		// 将超时时间改为100年
+		expiration = 100 * 365 * 24 * time.Hour
 	}
 
 	var cache = &AsyncCache{
@@ -71,7 +72,7 @@ func goAsyncCacheLoop(m sync.Map, expiration time.Duration) {
 	}
 }
 
-func (cache *AsyncCache) Get(key string, loader func() interface{}) interface{} {
+func (cache *AsyncCache) Get(key interface{}, loader func() interface{}) interface{} {
 	var item, ok = cache.m.Load(key)
 	if !ok {
 		item, _ = cache.m.LoadOrStore(key, newCacheItem())
