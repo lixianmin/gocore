@@ -14,7 +14,7 @@ import (
 )
 
 type AsyncCache struct {
-	m          sync.Map
+	m          *sync.Map
 	pool       *GoroutinePool
 	expiration time.Duration
 }
@@ -38,6 +38,7 @@ func NewAsyncCache(goPoolSize int, expiration time.Duration) *AsyncCache {
 	}
 
 	var cache = &AsyncCache{
+		m:          &sync.Map{},
 		pool:       NewGoroutinePool(goPoolSize),
 		expiration: expiration,
 	}
@@ -46,7 +47,7 @@ func NewAsyncCache(goPoolSize int, expiration time.Duration) *AsyncCache {
 	return cache
 }
 
-func goAsyncCacheLoop(m sync.Map, expiration time.Duration) {
+func goAsyncCacheLoop(m *sync.Map, expiration time.Duration) {
 	var deleteDelay = expiration * 4
 	var deleteTicker = time.NewTicker(deleteDelay)
 
