@@ -8,36 +8,40 @@ Copyright (C) - All Rights Reserved
 package loom
 
 import (
-	"time"
-	"math/rand"
-	"path/filepath"
-	"os"
 	"fmt"
+	"os"
+	"path/filepath"
 	"runtime/debug"
+	"time"
 )
 
 func Repeat(d time.Duration, handler func()) {
 	go func() {
 		defer DumpIfPanic()
 
-		// 立即调用一次，因为ticker需要过一段时间才触发
-		handler()
-
-		// 在[0, d] 时间内调用一次，随机化ticker启动时间，防止大量的瞬发性请求
-		var randomStart = time.Duration(rand.Int63n(int64(d)))
-		time.Sleep(randomStart)
-		handler()
-
-		// 使用ticker，每隔d的时间调用一次f()
-		var repeatTicker = time.NewTicker(d)
-		defer repeatTicker.Stop()
-
 		for {
-			select {
-			case <-repeatTicker.C:
-				handler()
-			}
+			handler()
+			time.Sleep(d)
 		}
+
+		//// 立即调用一次，因为ticker需要过一段时间才触发
+		//handler()
+		//
+		//// 在[0, d] 时间内调用一次，随机化ticker启动时间，防止大量的瞬发性请求
+		//var randomStart = time.Duration(rand.Int63n(int64(d)))
+		//time.Sleep(randomStart)
+		//handler()
+		//
+		//// 使用ticker，每隔d的时间调用一次f()
+		//var repeatTicker = time.NewTicker(d)
+		//defer repeatTicker.Stop()
+		//
+		//for {
+		//	select {
+		//	case <-repeatTicker.C:
+		//		handler()
+		//	}
+		//}
 	}()
 }
 
@@ -57,7 +61,7 @@ func DumpIfPanic() {
 	var logDir = "logs"
 	var logFilePath = fmt.Sprintf("%s/dump.%s.%d.%s.log", logDir, exeName, pid, timestamp)
 	if _, err := os.Stat(logDir); os.IsNotExist(err) {
-		os.MkdirAll(logDir, os.ModePerm)
+		_ = os.MkdirAll(logDir, os.ModePerm)
 	}
 
 	fmt.Println("dump to file ", logFilePath)
@@ -81,6 +85,6 @@ func DumpIfPanic() {
 }
 
 func writeOneMessage(fout *os.File, message string) {
-	fout.WriteString(message)
-	os.Stderr.WriteString(message)
+	_, _ = fout.WriteString(message)
+	_, _ = os.Stderr.WriteString(message)
 }
