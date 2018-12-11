@@ -10,6 +10,7 @@ package loom
 import (
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -17,6 +18,7 @@ type AsyncCache struct {
 	m          *sync.Map
 	pool       *GoroutinePool
 	expiration time.Duration
+	length     int32
 }
 
 // expiration为0则代表永不超时
@@ -43,40 +45,40 @@ func NewAsyncCache(goPoolSize int, expiration time.Duration) *AsyncCache {
 		expiration: expiration,
 	}
 
-	go goAsyncCacheLoop(cache.m, expiration)
+	go cache.goAsyncDelete()
 	return cache
 }
 
-func goAsyncCacheLoop(m *sync.Map, expiration time.Duration) {
-	var deleteDelay = expiration * 4
-	var deleteTicker = time.NewTicker(deleteDelay)
-
-	defer func() {
-		DumpIfPanic()
-		deleteTicker.Stop()
-	}()
+func (cache *AsyncCache) goAsyncDelete() {
+	defer DumpIfPanic()
+	var m = cache.m
+	var deleteDelay = cache.expiration * 4
 
 	for {
-		select {
-		case <-deleteTicker.C:
-			m.Range(func(key, value interface{}) bool {
-				var item = value.(*cacheItem)
-				var accessTime = item.getAccessTime()
-				// 虽然加到了cache.m中，但是accessTime=0的因为从未使用过，所以不做处理
-				if accessTime > 0 && time.Now().UnixNano() >= accessTime+int64(deleteDelay) {
-					m.Delete(key)
-				}
+		time.Sleep(deleteDelay)
 
-				return true
-			})
-		}
+		m.Range(func(key, value interface{}) bool {
+			var item = value.(*cacheItem)
+			var accessTime = item.getAccessTime()
+			// 虽然加到了cache.m中，但是accessTime=0的因为从未使用过，所以不做处理
+			if accessTime > 0 && time.Now().UnixNano() >= accessTime+int64(deleteDelay) {
+				m.Delete(key)
+				atomic.AddInt32(&cache.length, -1)
+			}
+
+			return true
+		})
 	}
 }
 
 func (cache *AsyncCache) Get(key interface{}, loader func() interface{}) interface{} {
 	var item, ok = cache.m.Load(key)
 	if !ok {
-		item, _ = cache.m.LoadOrStore(key, newCacheItem())
+		var loaded bool
+		item, loaded = cache.m.LoadOrStore(key, newCacheItem())
+		if !loaded {
+			atomic.AddInt32(&cache.length, 1)
+		}
 	}
 
 	// 到这里为止，相同的key对应拿到的item一定是相同的
@@ -95,26 +97,25 @@ func (cache *AsyncCache) Get(key interface{}, loader func() interface{}) interfa
 			theItem.setData(data)
 		}
 
+		theItem.setAccessTime()
 		var data = theItem.getData()
 		return data
 	}
 
 	// 时间过半，则发起一次异步加载
-	if !theItem.isLoading() && theItem.isExpired(expiration>>1) {
-		theItem.Lock()
-		{
-			if !theItem.isLoading() {
-				theItem.setLoading(true)
-				cache.pool.Schedule(func() {
-					defer theItem.setLoading(false)
-					var data = loader()
-					theItem.setData(data)
-				})
-			}
-		}
-		theItem.Unlock()
+	if theItem.isExpired(expiration>>1) && atomic.CompareAndSwapInt32(&theItem.Loading, 0, 1) {
+		cache.pool.Schedule(func() {
+			defer atomic.StoreInt32(&theItem.Loading, 0)
+			var data = loader()
+			theItem.setData(data)
+			theItem.setAccessTime()
+		})
 	}
 
 	var data = theItem.getData()
 	return data
+}
+
+func (cache *AsyncCache) GetCount() int {
+	return int(atomic.LoadInt32(&cache.length))
 }
