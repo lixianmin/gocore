@@ -71,7 +71,7 @@ func (cache *AsyncCache) goAsyncDelete() {
 	}
 }
 
-func (cache *AsyncCache) Get(key interface{}, loader func() interface{}) interface{} {
+func (cache *AsyncCache) Get(key interface{}, loader func() (interface{}, error)) interface{} {
 	var item, ok = cache.m.Load(key)
 	if !ok {
 		var loaded bool
@@ -93,8 +93,10 @@ func (cache *AsyncCache) Get(key interface{}, loader func() interface{}) interfa
 
 		// 如果从未加载过，或过期了，则加载并设置
 		if theItem.isExpired(expiration) {
-			var data = loader()
-			theItem.setData(data)
+			var data, err = loader()
+			if err == nil {
+				theItem.setData(data)
+			}
 		}
 
 		theItem.setAccessTime()
@@ -106,8 +108,10 @@ func (cache *AsyncCache) Get(key interface{}, loader func() interface{}) interfa
 	if theItem.isExpired(expiration>>1) && atomic.CompareAndSwapInt32(&theItem.Loading, 0, 1) {
 		cache.pool.Schedule(func() {
 			defer atomic.StoreInt32(&theItem.Loading, 0)
-			var data = loader()
-			theItem.setData(data)
+			var data, err = loader()
+			if err == nil {
+				theItem.setData(data)
+			}
 			theItem.setAccessTime()
 		})
 	}

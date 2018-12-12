@@ -20,9 +20,9 @@ func TestAsyncCache_Get(t *testing.T) {
 		i := i
 		go func() {
 			for j := 0; j < 10; j++ {
-				var val = cache.Get(i, func() interface{} {
+				var val = cache.Get(i, func() (interface{}, error) {
 					fmt.Printf("reload: i=%d\n\n", i)
-					return i * (j + 1)
+					return i * (j + 1), nil
 				})
 
 				time.Sleep(time.Millisecond * 200)
