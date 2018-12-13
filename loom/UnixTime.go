@@ -11,17 +11,16 @@ package loom
 
 import "time"
 
-type unixTime int64
+type UnixTime int64
 
-//func (t *unixTime) ToTime() time.Time {
-//	return time.Unix(int64(*t), 0)
-//}
-//
-
-func fromTime(t time.Time) unixTime {
-	return unixTime(t.Unix())
+func (t *UnixTime) ToTime() time.Time {
+	return time.Unix(int64(*t), 0)
 }
 
-func fromDuration(d time.Duration) unixTime {
-	return unixTime(d / 1e9)
+func fromTime(t time.Time) UnixTime {
+	return UnixTime(t.Unix())
+}
+
+func fromDuration(d time.Duration) UnixTime {
+	return UnixTime(d / 1e9)
 }

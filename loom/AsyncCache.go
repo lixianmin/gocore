@@ -17,7 +17,7 @@ import (
 type AsyncCache struct {
 	m          *sync.Map
 	pool       *GoroutinePool
-	expireTime unixTime
+	expireTime UnixTime
 	length     int32
 }
 

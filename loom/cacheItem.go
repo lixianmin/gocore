@@ -15,7 +15,7 @@ import (
 
 type cacheItem struct {
 	data       atomic.Value
-	accessTime unixTime
+	accessTime UnixTime
 	Loading    int32
 	sync.Mutex
 }
@@ -29,12 +29,12 @@ func (item *cacheItem) setAccessTime() {
 	atomic.StoreInt64((*int64)(&item.accessTime), time.Now().Unix())
 }
 
-func (item *cacheItem) getAccessTime() unixTime {
-	return unixTime(atomic.LoadInt64((*int64)(&item.accessTime)))
+func (item *cacheItem) getAccessTime() UnixTime {
+	return UnixTime(atomic.LoadInt64((*int64)(&item.accessTime)))
 }
 
-func (item *cacheItem) isExpired(expireTime unixTime) bool {
-	return unixTime(time.Now().Unix()) >= item.getAccessTime()+expireTime
+func (item *cacheItem) isExpired(expireTime UnixTime) bool {
+	return UnixTime(time.Now().Unix()) >= item.getAccessTime()+expireTime
 }
 
 func (item *cacheItem) setData(data interface{}) {
