@@ -71,7 +71,59 @@ func (cache *AsyncCache) goAsyncDelete(expiration time.Duration) {
 	}
 }
 
-func (cache *AsyncCache) Get(key interface{}, loader func() (interface{}, error)) interface{} {
+func (cache *AsyncCache) Get(key interface{}, loader func() (data interface{}, err error)) interface{} {
+	if key == nil {
+		return nil
+	}
+
+	// 到这里为止，相同的key对应拿到的item一定是相同的
+	var item = cache.fetchCacheItem(key)
+	var expireTime = cache.expireTime
+
+	// 如果从未加载，或过期了，则需要先加载
+	if item.isExpired(expireTime) {
+		// 真正获得锁的那个协程，不一定是store一个item到cache.m中的那个，它可能是任意一个协程
+		item.Lock()
+		defer item.Unlock()
+
+		// 如果从未加载过，或过期了，则加载并设置
+		if item.isExpired(expireTime) {
+			var data, err = loader()
+			if err == nil {
+				item.setData(data)
+			}
+		}
+
+		item.setAccessTime()
+		var data = item.getData()
+		return data
+	}
+
+	// 时间过半，则发起一次异步加载
+	if item.isExpired(expireTime>>1) && atomic.CompareAndSwapInt32(&item.Loading, 0, 1) {
+		cache.pool.Schedule(func() {
+			defer atomic.StoreInt32(&item.Loading, 0)
+			var data, err = loader()
+			if err == nil {
+				item.setData(data)
+			}
+			item.setAccessTime()
+		})
+	}
+
+	var data = item.getData()
+	return data
+}
+
+func (cache *AsyncCache) Set(key interface{}, data interface{}) {
+	if key != nil {
+		var item = cache.fetchCacheItem(key)
+		item.setData(data)
+		item.setAccessTime()
+	}
+}
+
+func (cache *AsyncCache) fetchCacheItem(key interface{}) *cacheItem {
 	var item, ok = cache.m.Load(key)
 	if !ok {
 		var loaded bool
@@ -83,41 +135,7 @@ func (cache *AsyncCache) Get(key interface{}, loader func() (interface{}, error)
 
 	// 到这里为止，相同的key对应拿到的item一定是相同的
 	var theItem = item.(*cacheItem)
-	var expireTime = cache.expireTime
-
-	// 如果从未加载，或过期了，则需要先加载
-	if theItem.isExpired(expireTime) {
-		// 真正获得锁的那个协程，不一定是store一个item到cache.m中的那个，它可能是任意一个协程
-		theItem.Lock()
-		defer theItem.Unlock()
-
-		// 如果从未加载过，或过期了，则加载并设置
-		if theItem.isExpired(expireTime) {
-			var data, err = loader()
-			if err == nil {
-				theItem.setData(data)
-			}
-		}
-
-		theItem.setAccessTime()
-		var data = theItem.getData()
-		return data
-	}
-
-	// 时间过半，则发起一次异步加载
-	if theItem.isExpired(expireTime>>1) && atomic.CompareAndSwapInt32(&theItem.Loading, 0, 1) {
-		cache.pool.Schedule(func() {
-			defer atomic.StoreInt32(&theItem.Loading, 0)
-			var data, err = loader()
-			if err == nil {
-				theItem.setData(data)
-			}
-			theItem.setAccessTime()
-		})
-	}
-
-	var data = theItem.getData()
-	return data
+	return theItem
 }
 
 func (cache *AsyncCache) GetCount() int {
