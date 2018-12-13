@@ -38,3 +38,14 @@ func TestAsyncCache_Get(t *testing.T) {
 
 	//time.Sleep(time.Minute * 2)
 }
+
+func TestCacheItem(t *testing.T) {
+	var item = newCacheItem()
+	item.setAccessTime()
+
+	var accessTime = item.getAccessTime()
+	if accessTime == 0 {
+		t.Fail()
+	}
+
+}

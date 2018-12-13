@@ -17,7 +17,7 @@ import (
 type AsyncCache struct {
 	m          *sync.Map
 	pool       *GoroutinePool
-	expiration time.Duration
+	expireTime unixTime
 	length     int32
 }
 
@@ -42,17 +42,17 @@ func NewAsyncCache(goPoolSize int, expiration time.Duration) *AsyncCache {
 	var cache = &AsyncCache{
 		m:          &sync.Map{},
 		pool:       NewGoroutinePool(goPoolSize),
-		expiration: expiration,
+		expireTime: fromDuration(expiration),
 	}
 
-	go cache.goAsyncDelete()
+	go cache.goAsyncDelete(expiration)
 	return cache
 }
 
-func (cache *AsyncCache) goAsyncDelete() {
+func (cache *AsyncCache) goAsyncDelete(expiration time.Duration) {
 	defer DumpIfPanic()
 	var m = cache.m
-	var deleteDelay = cache.expiration * 4
+	var deleteDelay = expiration * 4
 
 	for {
 		time.Sleep(deleteDelay)
@@ -61,7 +61,7 @@ func (cache *AsyncCache) goAsyncDelete() {
 			var item = value.(*cacheItem)
 			var accessTime = item.getAccessTime()
 			// 虽然加到了cache.m中，但是accessTime=0的因为从未使用过，所以不做处理
-			if accessTime > 0 && time.Now().UnixNano() >= accessTime+int64(deleteDelay) {
+			if accessTime > 0 && fromTime(time.Now()) >= accessTime+cache.expireTime {
 				m.Delete(key)
 				atomic.AddInt32(&cache.length, -1)
 			}
@@ -83,16 +83,16 @@ func (cache *AsyncCache) Get(key interface{}, loader func() (interface{}, error)
 
 	// 到这里为止，相同的key对应拿到的item一定是相同的
 	var theItem = item.(*cacheItem)
-	var expiration = cache.expiration
+	var expireTime = cache.expireTime
 
 	// 如果从未加载，或过期了，则需要先加载
-	if theItem.isExpired(expiration) {
+	if theItem.isExpired(expireTime) {
 		// 真正获得锁的那个协程，不一定是store一个item到cache.m中的那个，它可能是任意一个协程
 		theItem.Lock()
 		defer theItem.Unlock()
 
 		// 如果从未加载过，或过期了，则加载并设置
-		if theItem.isExpired(expiration) {
+		if theItem.isExpired(expireTime) {
 			var data, err = loader()
 			if err == nil {
 				theItem.setData(data)
@@ -105,7 +105,7 @@ func (cache *AsyncCache) Get(key interface{}, loader func() (interface{}, error)
 	}
 
 	// 时间过半，则发起一次异步加载
-	if theItem.isExpired(expiration>>1) && atomic.CompareAndSwapInt32(&theItem.Loading, 0, 1) {
+	if theItem.isExpired(expireTime>>1) && atomic.CompareAndSwapInt32(&theItem.Loading, 0, 1) {
 		cache.pool.Schedule(func() {
 			defer atomic.StoreInt32(&theItem.Loading, 0)
 			var data, err = loader()
