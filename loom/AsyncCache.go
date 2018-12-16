@@ -35,8 +35,8 @@ func NewAsyncCache(goPoolSize int, expiration time.Duration) *AsyncCache {
 
 	var isNeverExpire = expiration == 0
 	if isNeverExpire {
-		// 将超时时间改为100年
-		expiration = 100 * 365 * 24 * time.Hour
+		// 将超时时间改为10年。原来写的是100年，但后面定期delete使用的是4*expiration，会超过最大time.Duration的值
+		expiration = 10 * 365 * 24 * time.Hour
 	}
 
 	var cache = &AsyncCache{
