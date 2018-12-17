@@ -31,8 +31,8 @@ func (p *GoroutinePool) Schedule(task func()) {
 }
 
 func (p *GoroutinePool) worker(task func()) {
+	defer DumpIfPanic()
 	defer func() {
-		DumpIfPanic()
 		<-p.sem
 	}()
 
