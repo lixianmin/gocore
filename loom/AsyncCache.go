@@ -50,7 +50,7 @@ func NewAsyncCache(goPoolSize int, expiration time.Duration) *AsyncCache {
 }
 
 func (cache *AsyncCache) goAsyncDelete(expiration time.Duration) {
-	defer DumpIfPanic("")
+	defer DumpIfPanic()
 	var m = cache.m
 	var deleteDelay = expiration * 4
 

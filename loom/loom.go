@@ -18,7 +18,7 @@ import (
 
 func Repeat(d time.Duration, handler func()) {
 	go func() {
-		defer DumpIfPanic("")
+		defer DumpIfPanic()
 
 		// 立即调用一次，保证及时初始化
 		handler()
@@ -53,7 +53,7 @@ func Repeat(d time.Duration, handler func()) {
 	}()
 }
 
-func DumpIfPanic(message string) {
+func DumpIfPanic() {
 	var panicData = recover()
 	if panicData == nil {
 		return
@@ -81,8 +81,8 @@ func DumpIfPanic(message string) {
 	defer f.Close()
 
 	// 输出panic信息
-	writeOneMessage(f, "------------------------------------\r\n")
-	writeOneMessage(f, message)
+	//writeOneMessage(f, "------------------------------------\r\n")
+	//writeOneMessage(f, message)
 	writeOneMessage(f, "------------------------------------\r\n")
 	writeOneMessage(f, fmt.Sprintf("%v\r\n", panicData))
 	writeOneMessage(f, "------------------------------------\r\n")
