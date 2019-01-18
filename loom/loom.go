@@ -53,7 +53,7 @@ func Repeat(d time.Duration, handler func()) {
 	}()
 }
 
-func DumpIfPanic() {
+func DumpIfPanic(message string) {
 	var panicData = recover()
 	if panicData == nil {
 		return
@@ -81,12 +81,14 @@ func DumpIfPanic() {
 	defer f.Close()
 
 	// 输出panic信息
+	writeOneMessage(f, "------------------------------------\r\n")
+	writeOneMessage(f, message)
+	writeOneMessage(f, "------------------------------------\r\n")
 	writeOneMessage(f, fmt.Sprintf("%v\r\n", panicData))
-	writeOneMessage(f, "========\r\n")
+	writeOneMessage(f, "------------------------------------\r\n")
 
 	// 输出堆栈信息
 	writeOneMessage(f, string(debug.Stack()))
-	writeOneMessage(f, "------------------------------------\r\n")
 
 	// 直接退出？
 	os.Exit(1)
