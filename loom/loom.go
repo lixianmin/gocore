@@ -18,7 +18,7 @@ import (
 
 func Repeat(d time.Duration, handler func()) {
 	go func() {
-		defer DumpIfPanic()
+		defer DumpIfPanic("")
 
 		// 立即调用一次，保证及时初始化
 		handler()
