@@ -17,6 +17,10 @@ func (t *UnixTime) ToTime() time.Time {
 	return time.Unix(int64(*t), 0)
 }
 
+func (t *UnixTime) ToDuration() time.Duration {
+	return time.Duration(*t * 1e9)
+}
+
 func fromTime(t time.Time) UnixTime {
 	return UnixTime(t.Unix())
 }
