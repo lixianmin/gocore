@@ -31,6 +31,11 @@ func EnableDebugger(rootDirectory string, handleFunc func(path string, handler f
 	handleFunc(rootDirectory+"/debug/pprof/profile", profile)
 	handleFunc(rootDirectory+"/debug/pprof/symbol", symbol)
 	handleFunc(rootDirectory+"/debug/pprof/trace", trace)
+	handleFunc(rootDirectory+"/debug/pprof/block", handler("block"))
+	handleFunc(rootDirectory+"/debug/pprof/goroutine", handler("goroutine"))
+	handleFunc(rootDirectory+"/debug/pprof/heap", handler("heap"))
+	handleFunc(rootDirectory+"/debug/pprof/mutex", handler("mutex"))
+	handleFunc(rootDirectory+"/debug/pprof/threadcreate", handler("threadcreate"))
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
@@ -60,5 +65,13 @@ func symbol(w http.ResponseWriter, r *http.Request) {
 func trace(w http.ResponseWriter, r *http.Request) {
 	if _isDebugAllowed(w, r) {
 		pprof.Trace(w, r)
+	}
+}
+
+func handler(name string) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _isDebugAllowed(w, r) {
+			pprof.Handler(name).ServeHTTP(w, r)
+		}
 	}
 }
