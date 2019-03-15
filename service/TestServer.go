@@ -23,7 +23,7 @@ func NewTestServer() *TestServer {
 func (server *TestServer) ListenAndServe() {
 	//  处理debug消息
 	var mux = http.NewServeMux()
-	dbg.EnableDebugger(mux.HandleFunc, func(w http.ResponseWriter, r *http.Request) bool {
+	dbg.EnableDebugger("", mux.HandleFunc, func(w http.ResponseWriter, r *http.Request) bool {
 		if r.Header.Get("h") == "1" {
 			return true
 		}

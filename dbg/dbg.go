@@ -12,11 +12,11 @@ import (
 )
 
 var _isDebugAllowed = func(w http.ResponseWriter, r *http.Request) bool {
-	w.Write([]byte("Permission denied, please contact with lixianmin@live.cn"))
+	_, _ = w.Write([]byte("Permission denied, please contact with lixianmin@live.cn"))
 	return false
 }
 
-func EnableDebugger(handleFunc func(path string, handler func(http.ResponseWriter, *http.Request)), isDebugAllowed func(w http.ResponseWriter, r *http.Request) bool) {
+func EnableDebugger(rootDirectory string, handleFunc func(path string, handler func(http.ResponseWriter, *http.Request)), isDebugAllowed func(w http.ResponseWriter, r *http.Request) bool) {
 	if nil == handleFunc {
 		panic("handleFunc is nil")
 	}
@@ -26,11 +26,11 @@ func EnableDebugger(handleFunc func(path string, handler func(http.ResponseWrite
 	}
 
 	_isDebugAllowed = isDebugAllowed
-	handleFunc("/debug/pprof/", index)
-	handleFunc("/debug/pprof/cmdline", cmdline)
-	handleFunc("/debug/pprof/profile", profile)
-	handleFunc("/debug/pprof/symbol", symbol)
-	handleFunc("/debug/pprof/trace", trace)
+	handleFunc(rootDirectory+"/debug/pprof/", index)
+	handleFunc(rootDirectory+"/debug/pprof/cmdline", cmdline)
+	handleFunc(rootDirectory+"/debug/pprof/profile", profile)
+	handleFunc(rootDirectory+"/debug/pprof/symbol", symbol)
+	handleFunc(rootDirectory+"/debug/pprof/trace", trace)
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
